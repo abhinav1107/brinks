@@ -21,10 +21,11 @@ async def log_requests(request: Request, call_next):
     start_time = time.time()
     rid = '{}-{}'.format(int(ipaddress.ip_address(request.client.host)), uuid.uuid4().hex)
     request.state.rid = rid
-    logger.info("starting request {} for client {} at url {}".format(rid, request.client.host, request.url.path))
+    logger.info("id: {}. request start".format(rid))
     response = await call_next(request)
-    process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = '{:.3f}'.format(process_time)
+    process_time = '{:.3f}'.format(time.time() - start_time)
+    logger.info("id: {}. request complete".format(rid))
+    response.headers["X-Process-Time"] = process_time
     response.headers["X-Request-ID"] = rid
     return response
 

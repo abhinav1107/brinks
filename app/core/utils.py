@@ -17,14 +17,14 @@ def compare_sftp_local_files(crid1, sftp_client1, local_path, remote_path):
         return 1
 
     if os.path.exists(local_path) and os.path.getsize(local_path) == remote_stat.st_size:
-        logger.debug("{}: remote file {} exists locally at {}".format(crid1, remote_path, local_path))
+        logger.info("{}: remote file {} exists locally at {}".format(crid1, remote_path, local_path))
         return 0
 
     return 2
 
 
 def get_sftp_files(crid, jenkins_path, local_path):
-    logger.debug("{}: starting files copy between jenkins and local servers".format(crid))
+    logger.info("{}: starting files copy between jenkins and local servers".format(crid))
     sftp_done = False
     loop_count = 0
     status_file = '{}/.brinks.status'.format(local_path)
@@ -37,7 +37,7 @@ def get_sftp_files(crid, jenkins_path, local_path):
     while not sftp_done:
         err_message = None
         all_build_files = sftp1.listdir(jenkins_path)
-        logger.debug("{}: files to get from jenkins server: {}".format(crid, ','.join(all_build_files)))
+        logger.info("{}: files to get from jenkins server: {}".format(crid, ','.join(all_build_files)))
         for each_file in all_build_files:
             file_status = compare_sftp_local_files(
                 crid1=crid,
@@ -61,7 +61,7 @@ def get_sftp_files(crid, jenkins_path, local_path):
                     logger.error("{}: {}".format(crid, err_message))
 
         if not err_message:
-            logger.debug("{}: all files copied locally from jenkins server".format(crid))
+            logger.info("{}: all files copied locally from jenkins server".format(crid))
             with open(status_file, 'w') as f1:
                 f1.write("complete")
             sftp_done = True
@@ -95,7 +95,7 @@ def get_jenkins_build_files(bt, rid, job, build, path):
         logger.error(msg)
         return status.HTTP_511_NETWORK_AUTHENTICATION_REQUIRED, msg
 
-    logger.debug("{}: connecting to {} with user {} using ssh key".format(rid, JENKINS_HOST, JENKINS_USER))
+    logger.info("{}: connecting to {} with user {} using ssh key".format(rid, JENKINS_HOST, JENKINS_USER))
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh_key = paramiko.RSAKey.from_private_key_file(ssh_key_file)
@@ -111,9 +111,9 @@ def get_jenkins_build_files(bt, rid, job, build, path):
         logger.error(msg)
         return status.HTTP_500_INTERNAL_SERVER_ERROR, msg
 
-    logger.debug("{}: ssh connection successful".format(rid))
+    logger.info("{}: ssh connection successful".format(rid))
     sftp = ssh.open_sftp()
-    logger.debug("{}: sftp connection opened".format(rid))
+    logger.info("{}: sftp connection opened".format(rid))
     try:
         sftp.stat(jenkins_job_path)
     except Exception as sftp_folder_error:
@@ -121,7 +121,20 @@ def get_jenkins_build_files(bt, rid, job, build, path):
         logger.error(msg)
         return status.HTTP_412_PRECONDITION_FAILED, msg
 
-    logger.debug("{}: folder {} found on jenkins server. getting build files".format(rid, jenkins_job_path))
+    all_path_files = []
+    all_sftp_dir_list = sftp.listdir(jenkins_job_path)
+    for each_item in all_sftp_dir_list:
+        each_full_path = '{}/{}'.format(jenkins_job_path, each_item)
+        try:
+            sftp.listdir(each_full_path)
+        except IOError:
+            all_path_files.append(each_item)
+    if len(all_path_files) == 0:
+        msg = 'no files found for download under {}/{}/{}'.format(job, build, path)
+        logger.info("{}: {}".format(rid, msg))
+        return status.HTTP_404_NOT_FOUND, msg
+
+    logger.info("{}: folder {} found on jenkins server. getting build files".format(rid, jenkins_job_path))
     try:
         os.makedirs(local_job_path, exist_ok=True)
     except (IOError, OSError) as folder_create_err:

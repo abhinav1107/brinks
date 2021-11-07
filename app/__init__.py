@@ -2,7 +2,7 @@ from app.core.config import APP_PATH, DEBUG
 import logging
 
 if DEBUG:
-    log_level = logging.DEBUG
+    log_level = logging.INFO
 else:
     log_level = logging.WARNING
 
