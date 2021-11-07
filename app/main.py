@@ -19,14 +19,15 @@ logger.info("Server started successfully...")
 @brinks.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
-    rid = '{}-{}'.format(int(ipaddress.ip_address(request.client.host)), uuid.uuid4().hex)
+    req_id = uuid.uuid4().hex
+    rid = '{}-{}'.format(int(ipaddress.ip_address(request.client.host)), req_id)
     request.state.rid = rid
     logger.info("id: {}. request start".format(rid))
     response = await call_next(request)
     process_time = '{:.3f}'.format(time.time() - start_time)
     logger.info("id: {}. request complete".format(rid))
     response.headers["X-Process-Time"] = process_time
-    response.headers["X-Request-ID"] = rid
+    response.headers["X-Request-ID"] = req_id
     return response
 
 
@@ -70,12 +71,12 @@ def get_status(job_name: str, build_number: str, response: Response):
 
 @brinks.put("/getfiles/")
 def get_files(req: Request, resp: Response, btask: BackgroundTasks,
-              job_name: str, build_number: str, archive_path: str = "/archive"):
+              job_name: str, build_number: str, path: str = "/archive"):
     job_name = job_name.strip().strip('/')
     build_number = build_number.strip().strip('/')
-    archive_path = archive_path.strip().strip('/')
+    path = path.strip().strip('/')
     request_id = req.state.rid
-    rs, rmsg = get_jenkins_build_files(bt=btask, rid=request_id, job=job_name, build=build_number, path=archive_path)
+    rs, rmsg = get_jenkins_build_files(bt=btask, rid=request_id, job=job_name, build=build_number, path=path)
     resp.status_code = rs
     return {"message": rmsg}
 
